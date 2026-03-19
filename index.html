@@ -1045,7 +1045,6 @@ async function compressOffice(file) {
         const rc   = await recompressImg(orig, q);
         if (rc && rc.byteLength < orig.byteLength * 0.97) {
           zip.file(t.path, rc);
-          const pct = (100 - rc.byteLength / orig.byteLength * 100).toFixed(0);
         } else {
         }
       } catch(_) { /* skip immagine */ }
@@ -1060,7 +1059,6 @@ async function compressOffice(file) {
     compression: 'DEFLATE',
     compressionOptions: { level: stripOpts.deflate ? 9 : 6 },
   });
-  logReplace('zip', `ZIP completato: ${fmt(file.size)} → ${fmt(blob.size)}`, 'ok');
   return blob;
 }
 
