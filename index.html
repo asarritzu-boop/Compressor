@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="theme-color" content="#f2f2f7">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+
+<link rel="apple-touch-icon" href="icona-192.png">
+
+  <meta property="og:type" content="website">
+<meta property="og:url" content="https://asarritzu-boop.github.io/Compressor/">
+<meta property="og:title" content="Comprimi PDF, Word & Excel">
+<meta property="og:description" content="Comprimi file senza caricarli online. Elaborazione 100% locale per la tua privacy.">
+<meta property="og:image" content="https://asarritzu-boop.github.io/Compressor/icona-512.png">
+
+<meta property="twitter:card" content="summary_large_image">
+<meta property="twitter:title" content="Comprimi PDF, Word & Excel">
+<meta property="twitter:image" content="https://asarritzu-boop.github.io/Compressor/icona-512.png">
+<link rel="manifest" href="manifest.json">
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .then(reg => console.log('PWA: Service Worker registrato!'))
+        .catch(err => console.log('PWA: Errore SW', err));
+    });
+  }
+</script>
+
+  <title>File Compressor — PDF · Word · Excel</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    :root {
+      --bg:         #f2f2f7;
+      --surface:    #ffffff;
+      --surface2:   #f9f9fb;
+      --grouped:    #efeff4;
+      --border:     rgba(60,60,67,0.12);
+      --border2:    rgba(60,60,67,0.18);
+      --text:       #1c1c1e;
+      --text2:      #3a3a3c;
+      --muted:      #8e8e93;
+      --muted2:     #aeaeb2;
+      --accent:     #007aff;
+      --accent-bg:  rgba(0,122,255,0.08);
+      --green:      #34c759;
+      --green-bg:   rgba(52,199,89,0.10);
+      --orange:     #ff9500;
+      --orange-bg:  rgba(255,149,0,0.10);
+      --red:        #ff3b30;
+      --red-bg:     rgba(255,59,48,0.10);
+      --pdf:        #ff3b30;
+      --pdf-bg:     rgba(255,59,48,0.09);
+      --word:       #007aff;
+      --word-bg:    rgba(0,122,255,0.09);
+      --excel:      #34c759;
+      --excel-bg:   rgba(52,199,89,0.09);
+      --shadow-sm:  0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
+      --shadow-md:  0 4px 16px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04);
+      --r:          13px;
+      --r-sm:       10px;
+      --sans:       -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+      --sans-disp:  -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 52px 20px 80px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ══ HEADER ══════════════════════════════════════════════════════════════ */
+    header {
+      width: 100%;
+      max-width: 680px;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+
+    header h1 {
+      font-family: var(--sans-disp);
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+    }
+
+    header p {
+      margin-top: 6px;
+      font-size: 0.95rem;
+      color: var(--muted);
+      font-weight: 400;
+    }
+
+    .format-pills {
+      display: flex;
+      gap: 7px;
+      margin-top: 14px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .pill {
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 4px 11px;
+      border-radius: 99px;
+      letter-spacing: 0.01em;
+    }
+    .pill-pdf   { background: var(--pdf-bg);   color: var(--pdf); }
+    .pill-word  { background: var(--word-bg);  color: var(--word); }
+    .pill-excel { background: var(--excel-bg); color: var(--excel); }
+
+    /* ══ STATUS BAR ══════════════════════════════════════════════════════════ */
+    #statusBar {
+      width: 100%;
+      max-width: 680px;
+      margin-bottom: 14px;
+      background: var(--surface);
+      border-radius: var(--r-sm);
+      padding: 11px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      background: var(--orange);
+      animation: blink 1.4s ease-in-out infinite;
+    }
+    .status-dot.ready { background: var(--green); animation: none; }
+    .status-dot.error { background: var(--red);   animation: none; }
+
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    #statusMsg { flex: 1; }
+
+    /* ══ MAIN CARD ═══════════════════════════════════════════════════════════ */
+    .card {
+      width: 100%;
+      max-width: 680px;
+      background: var(--surface);
+      border-radius: 20px;
+      padding: 24px;
+      box-shadow: var(--shadow-md);
+    }
+
+    /* ══ DROPZONE ════════════════════════════════════════════════════════════ */
+    #dropzone {
+      background: var(--grouped);
+      border: 2px dashed var(--border2);
+      border-radius: var(--r);
+      padding: 36px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: background .18s, border-color .18s;
+    }
+    #dropzone:hover, #dropzone.dragover {
+      background: var(--accent-bg);
+      border-color: var(--accent);
+    }
+    #dropzone svg {
+      width: 36px; height: 36px;
+      margin: 0 auto 12px;
+      display: block;
+      color: var(--accent);
+      opacity: .6;
+    }
+    #dropzone .dz-title { color: var(--text2); font-size: .9rem; font-weight: 500; }
+    #dropzone .dz-title span { color: var(--accent); font-weight: 600; }
+    #dropzone .dz-sub { font-size: .75rem; color: var(--muted); margin-top: 5px; }
+    #fileInput { display: none; }
+
+    /* ══ FILE LIST ═══════════════════════════════════════════════════════════ */
+    #fileList { margin-top: 14px; display: flex; flex-direction: column; gap: 1px; }
+
+    /* iOS grouped list style */
+    #fileList .fi:first-child { border-radius: var(--r-sm) var(--r-sm) 0 0; }
+    #fileList .fi:last-child  { border-radius: 0 0 var(--r-sm) var(--r-sm); border-bottom: none; }
+    #fileList .fi:only-child  { border-radius: var(--r-sm); border-bottom: none; }
+
+    .fi {
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .fi-badge {
+      font-size: .65rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      flex-shrink: 0;
+      letter-spacing: .02em;
+    }
+    .fi-badge.pdf   { background: var(--pdf-bg);   color: var(--pdf); }
+    .fi-badge.word  { background: var(--word-bg);  color: var(--word); }
+    .fi-badge.excel { background: var(--excel-bg); color: var(--excel); }
+
+    .fi-info { flex: 1; min-width: 0; }
+    .fi-name { font-size: .88rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
+    .fi-size { font-size: .72rem; color: var(--muted); margin-top: 2px; }
+
+    .fi-remove {
+      background: var(--red-bg);
+      border: none;
+      color: var(--red);
+      cursor: pointer;
+      width: 24px; height: 24px;
+      border-radius: 99px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .75rem; font-weight: 700;
+      transition: background .15s;
+      flex-shrink: 0;
+    }
+    .fi-remove:hover { background: rgba(255,59,48,.18); }
+
+    /* ══ OPTIONS ═════════════════════════════════════════════════════════════ */
+    #optionsSection {
+      margin-top: 20px;
+      display: none;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .sep {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 20px 0;
+    }
+
+    .opt-label {
+      font-size: .72rem;
+      font-weight: 600;
+      color: var(--muted);
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      display: block;
+      padding-left: 4px;
+    }
+
+    /* ── PDF SECTION ── */
+    #pdfSection { display: none; }
+
+    .preset-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .preset-btn {
+      background: var(--grouped);
+      border: 1.5px solid transparent;
+      border-radius: var(--r-sm);
+      padding: 12px 6px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+    }
+    .preset-btn:hover { background: var(--accent-bg); }
+    .preset-btn.active {
+      border-color: var(--accent);
+      background: var(--accent-bg);
+    }
+    .pb-name { font-size: .84rem; font-weight: 600; color: var(--text); }
+    .pb-dpi  { font-size: .68rem; color: var(--muted); margin-top: 3px; }
+    .pb-est  { font-size: .66rem; color: var(--accent); margin-top: 4px; font-weight: 500; }
+
+    /* ── OFFICE SECTION ── */
+    #officeSection { display: none; }
+
+    .quality-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .quality-btn {
+      background: var(--grouped);
+      border: 1.5px solid transparent;
+      border-radius: var(--r-sm);
+      padding: 13px 6px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+    }
+    .quality-btn:hover { background: var(--accent-bg); }
+    .quality-btn.active {
+      border-color: var(--accent);
+      background: var(--accent-bg);
+    }
+    .qb-name { font-size: .84rem; font-weight: 600; color: var(--text); }
+    .qb-sub  { font-size: .68rem; color: var(--muted); margin-top: 3px; }
+    .qb-est  { font-size: .66rem; color: var(--accent); margin-top: 4px; font-weight: 500; }
+
+    /* info box */
+    .info-box {
+      border-radius: var(--r-sm);
+      padding: 12px 14px;
+      font-size: .8rem;
+      color: var(--text2);
+      line-height: 1.55;
+      margin-top: 10px;
+    }
+    .info-box.purple { background: rgba(88,86,214,.07); }
+    .info-box.blue   { background: var(--accent-bg); }
+    .info-box strong { color: var(--text); font-weight: 600; }
+
+    /* strip toggles — iOS chip style */
+    .strip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .strip-toggle {
+      background: var(--grouped);
+      border: 1.5px solid transparent;
+      border-radius: 99px;
+      padding: 6px 14px;
+      cursor: pointer;
+      font-size: .8rem;
+      font-weight: 500;
+      color: var(--muted);
+      transition: all .15s;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .strip-toggle.on {
+      background: var(--accent-bg);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .strip-toggle .check { font-size: .72rem; }
+
+    /* ══ PROGRESS ════════════════════════════════════════════════════════════ */
+    #progressWrap { margin-top: 20px; display: none; }
+
+    .prog-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .prog-label { font-size: .8rem; color: var(--muted); font-weight: 500; }
+    .prog-pct   { font-size: .8rem; color: var(--accent); font-weight: 600; }
+
+    .prog-track {
+      height: 4px;
+      background: var(--grouped);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .prog-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 99px;
+      transition: width .35s ease;
+      width: 0%;
+    }
+
+    /* ══ BUTTON ══════════════════════════════════════════════════════════════ */
+    #compressBtn {
+      margin-top: 20px;
+      width: 100%;
+      padding: 15px;
+      background: var(--accent);
+      color: #fff;
+      font-family: var(--sans);
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 14px;
+      cursor: pointer;
+      transition: opacity .15s, transform .1s;
+      letter-spacing: -0.01em;
+    }
+    #compressBtn:hover:not(:disabled) { opacity: .88; }
+    #compressBtn:active:not(:disabled) { transform: scale(.99); }
+    #compressBtn:disabled { opacity: .35; cursor: not-allowed; }
+
+    /* ══ RESULTS ═════════════════════════════════════════════════════════════ */
+    #results { margin-top: 14px; display: flex; flex-direction: column; gap: 1px; }
+
+    #results .ri:first-child { border-radius: var(--r-sm) var(--r-sm) 0 0; }
+    #results .ri:last-child  { border-radius: 0 0 var(--r-sm) var(--r-sm); border-bottom: none; }
+    #results .ri:only-child  { border-radius: var(--r-sm); border-bottom: none; }
+
+    .ri {
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      padding: 13px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .ri.err { background: var(--red-bg); }
+
+    .ri-info  { flex: 1; min-width: 0; }
+    .ri-name  { font-size: .88rem; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ri-stats { font-size: .75rem; margin-top: 3px; font-weight: 500; }
+    .ri-stats.ok   { color: var(--green); }
+    .ri-stats.warn { color: var(--orange); }
+    .ri-stats.err  { color: var(--red); }
+
+    .ri-tag {
+      font-size: .62rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 99px;
+      margin-left: 7px;
+      vertical-align: middle;
+    }
+    .ri-tag.pdf   { background: var(--pdf-bg);   color: var(--pdf); }
+    .ri-tag.word  { background: var(--word-bg);  color: var(--word); }
+    .ri-tag.excel { background: var(--excel-bg); color: var(--excel); }
+
+    .dl-btn {
+      background: var(--green-bg);
+      border: none;
+      color: var(--green);
+      font-family: var(--sans);
+      font-size: .82rem;
+      font-weight: 600;
+      padding: 8px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background .15s;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .dl-btn:hover { background: rgba(52,199,89,.18); }
+
+    .dl-all {
+      width: 100%;
+      padding: 13px;
+      background: var(--green-bg);
+      border: none;
+      color: var(--green);
+      font-family: var(--sans);
+      font-size: .92rem;
+      font-weight: 600;
+      border-radius: 14px;
+      cursor: pointer;
+      transition: background .15s;
+      margin-top: 10px;
+    }
+    .dl-all:hover { background: rgba(52,199,89,.18); }
+
+    /* ══ FOOTER ══════════════════════════════════════════════════════════════ */
+    .note {
+      margin-top: 16px;
+      font-size: .72rem;
+
+    /* ══ LARGE FILE WARNING ═══════════════════════════════════════════════════ */
+    .large-file-warn {
+      background: rgba(255,149,0,.10);
+      border: 1px solid rgba(255,149,0,.25);
+      border-radius: var(--r-sm);
+      padding: 10px 14px;
+      font-size: .78rem;
+      color: #b36b00;
+      margin-top: 10px;
+      display: none;
+      line-height: 1.5;
+    }
+    .large-file-warn strong { color: var(--orange); }
+      color: var(--muted2);
+      text-align: center;
+      line-height: 1.7;
+    }
+
+      </style>
+</head>
+<body>
+
+<!-- ═══ HEADER ══════════════════════════════════════════════════════════════ -->
+<header>
+  <h1>Comprimi PDF, Word & Excel</h1>
+
+  <div class="format-pills">
+    <span class="pill pill-pdf">PDF · Ghostscript WASM</span>
+    <span class="pill pill-word">DOCX · JSZip</span>
+    <span class="pill pill-excel">XLSX · JSZip</span>
+  </div>
+</header>
+
+<!-- ═══ STATUS BAR ═══════════════════════════════════════════════════════════ -->
+<div id="statusBar">
+  <div class="status-dot" id="statusDot"></div>
+  <span id="statusMsg">Caricamento Ghostscript WASM…</span>
+</div>
+
+<!-- ═══ CARD ══════════════════════════════════════════════════════════════════ -->
+<div class="card">
+
+  <!-- DROPZONE -->
+  <div id="dropzone" onclick="document.getElementById('fileInput').click()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+      <path stroke-linecap="round" stroke-linejoin="round"
+        d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0
+           0021 18.75V16.5M16.5 12L12 7.5m0 0L7.5 12M12 7.5V21"/>
+    </svg>
+    <p class="dz-title">Trascina i file qui oppure <span>clicca per selezionarli</span></p>
+    <p class="dz-sub">PDF · DOCX · XLSX &nbsp;·&nbsp; file multipli supportati</p>
+    <input type="file" id="fileInput" accept=".pdf,.docx,.xlsx" multiple/>
+  </div>
+
+  <!-- FILE LIST -->
+  <div id="fileList"></div>
+
+  <!-- LARGE FILE WARNING -->
+  <div class="large-file-warn" id="largeFileWarn">
+  
+  </div>
+
+  <!-- OPTIONS -->
+  <div id="optionsSection">
+
+    <!-- ── PDF OPTIONS ────────────────────────────────────── -->
+    <div id="pdfSection">
+      <hr class="sep">
+      <span class="opt-label">🔴 PDF · Preset Ghostscript</span>
+      <div class="preset-grid">
+        <div class="preset-btn" data-preset="screen" onclick="selectPreset(this)">
+          <div class="pb-name">Screen</div>
+          <div class="pb-dpi">img 35%</div>
+          <div class="pb-est">max rid.</div>
+        </div>
+        <div class="preset-btn" data-preset="ebook" onclick="selectPreset(this)">
+          <div class="pb-name">eBook</div>
+          <div class="pb-dpi">img 55%</div>
+          <div class="pb-est">alta rid.</div>
+        </div>
+        <div class="preset-btn active" data-preset="printer" onclick="selectPreset(this)">
+          <div class="pb-name">Printer</div>
+          <div class="pb-dpi">img 75%</div>
+          <div class="pb-est">bilanciato</div>
+        </div>
+        <div class="preset-btn" data-preset="prepress" onclick="selectPreset(this)">
+          <div class="pb-name">Prepress</div>
+          <div class="pb-dpi">img 92%</div>
+          <div class="pb-est">alta qualità</div>
+        </div>
+      </div>
+      <div class="info-box purple" id="presetInfo">
+        <strong>Printer:</strong> Equilibrio qualità/dimensione. Immagini nitide, struttura del documento invariata.
+      </div>
+    </div>
+
+    <!-- ── OFFICE OPTIONS ─────────────────────────────────── -->
+    <div id="officeSection">
+      <hr class="sep">
+      <span class="opt-label">🔵 Word · 🟢 Excel · Qualità immagini embedded</span>
+      <div class="quality-grid">
+        <div class="quality-btn" data-quality="low" onclick="selectQuality(this)">
+          <div class="qb-name">Alta qualità</div>
+          <div class="qb-sub">JPEG 85%</div>
+          <div class="qb-est">~25% rid.</div>
+        </div>
+        <div class="quality-btn active" data-quality="medium" onclick="selectQuality(this)">
+          <div class="qb-name">Bilanciata</div>
+          <div class="qb-sub">JPEG 60%</div>
+          <div class="qb-est">~50% rid.</div>
+        </div>
+        <div class="quality-btn" data-quality="high" onclick="selectQuality(this)">
+          <div class="qb-name">Max compressione</div>
+          <div class="qb-sub">JPEG 30%</div>
+          <div class="qb-est">~70% rid.</div>
+        </div>
+      </div>
+
+      <span class="opt-label" style="margin-top:14px; display:block">Ottimizzazioni aggiuntive</span>
+      <div class="strip-row">
+        <div class="strip-toggle on" data-strip="metadata" onclick="toggleStrip(this)">
+          <span class="check">✓</span> Rimuovi metadata
+        </div>
+        <div class="strip-toggle on" data-strip="thumbnail" onclick="toggleStrip(this)">
+          <span class="check">✓</span> Rimuovi thumbnail
+        </div>
+        <div class="strip-toggle on" data-strip="deflate" onclick="toggleStrip(this)">
+          <span class="check">✓</span> Ricomprimi ZIP (DEFLATE 9)
+        </div>
+        <div class="strip-toggle on" data-strip="unused" onclick="toggleStrip(this)">
+          <span class="check">✓</span> Rimuovi stili inutilizzati
+        </div>
+      </div>
+
+      <div class="info-box blue" style="margin-top:10px">
+        <strong>Come funziona:</strong> Il file .docx/.xlsx è uno ZIP di XML + immagini. Lo strumento apre il contenitore, ricomprime ogni immagine embedded via canvas, rimuove gli elementi opzionali selezionati e richiude il tutto con compressione DEFLATE massima.
+      </div>
+    </div>
+
+  </div>
+
+  <!-- PROGRESS -->
+  <div id="progressWrap">
+    <div class="prog-row">
+      <span class="prog-label" id="progressText">Elaborazione…</span>
+      <span class="prog-pct" id="progressPct">0%</span>
+    </div>
+    <div class="prog-track"><div class="prog-fill" id="progressFill"></div></div>
+  </div>
+
+  <!-- BUTTON -->
+  <button id="compressBtn" disabled onclick="compressAll()">Comprimi file</button>
+
+  <!-- RESULTS -->
+  <div id="results"></div>
+
+ 
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+
+<script type="module">
+const GS_CDN = 'https://cdn.jsdelivr.net/npm/@jspawn/ghostscript-wasm@0.0.2';
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let gs      = null;
+let gsReady = false;
+let files   = [];
+let preset  = 'printer';
+let officeQ = 'medium';
+let blobs   = [];
+
+const QUALITY = { low: 0.85, medium: 0.60, high: 0.30 };
+const PRESET_DESC = {
+  screen:   '<strong>Screen:</strong> Massima compressione — font deduplication aggressiva. Solo schermo.',
+  ebook:    '<strong>eBook:</strong> Alta compressione con buona leggibilità. Distribuzione digitale.',
+  printer:  '<strong>Printer:</strong> Bilanciato — qualità stampa, riduzione significativa.',
+  prepress: '<strong>Prepress:</strong> Alta fedeltà. Compressione conservativa per uso professionale.',
+};
+const stripOpts = { metadata: true, thumbnail: true, deflate: true, unused: true };
+const MIME = {
+  'application/pdf': 'pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'word',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'excel',
+};
+
+// ─── UTILS ───────────────────────────────────────────────────────────────────
+function fmt(b) {
+  if (b < 1024)    return b + ' B';
+  if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+  return (b / 1048576).toFixed(2) + ' MB';
+}
+function getType(f) {
+  if (f.type in MIME) return MIME[f.type];
+  const e = f.name.split('.').pop().toLowerCase();
+  return { pdf: 'pdf', docx: 'word', xlsx: 'excel' }[e] ?? null;
+}
+const raf  = () => new Promise(r => requestAnimationFrame(r));
+const tick = () => new Promise(r => setTimeout(r, 0));
+
+
+
+// ─── STATUS BAR ──────────────────────────────────────────────────────────────
+function setStatus(cls, msg) {
+  document.getElementById('statusDot').className = 'status-dot ' + cls;
+  document.getElementById('statusMsg').textContent = msg;
+}
+
+function setProgress(pct, text) {
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressPct').textContent  = pct + '%';
+  document.getElementById('progressText').textContent = text;
+}
+
+// ─── GHOSTSCRIPT INIT ─────────────────────────────────────────────────────────
+async function initGS() {
+  setStatus('', 'Caricamento Ghostscript WASM (~18 MB)…');
+  let dots = 0;
+  const ticker = setInterval(() => {
+    dots = (dots + 1) % 4;
+    setStatus('', 'Caricamento Ghostscript WASM (~18 MB)' + '.'.repeat(dots));
+  }, 600);
+
+  // Timeout ridotto a 30s — su mobile spesso il WASM non arriva mai
+  const timer = setTimeout(() => {
+    clearInterval(ticker);
+    gsReady = false;
+    setStatus('ready', '⚡ Modalità leggera — PDF testuali e Office pronti (GS non disponibile)');
+    updateBtn();
+  }, 30000);
+
+  try {
+    const { default: init } = await import(GS_CDN + '/gs.mjs');
+    gs = await init({ locateFile: f => GS_CDN + '/' + f });
+    gsReady = true;
+    clearTimeout(timer); clearInterval(ticker);
+    setStatus('ready', '✓ Ghostscript pronto · PDF · Word · Excel');
+  } catch(e) {
+    clearTimeout(timer); clearInterval(ticker);
+    gsReady = false;
+    setStatus('ready', '⚡ Modalità leggera — GS non disponibile, uso pdf-lib');
+    addRetryBtn();
+  }
+  updateBtn();
+}
+
+function addRetryBtn() {
+  if (document.getElementById('gsRetryBtn')) return;
+  const btn = document.createElement('button');
+  btn.id = 'gsRetryBtn';
+  btn.textContent = '↺ Riprova';
+  btn.style.cssText = 'margin-left:8px;padding:3px 10px;font-size:.73rem;font-weight:600;background:var(--accent);color:#fff;border:none;border-radius:6px;cursor:pointer';
+  btn.onclick = () => { btn.remove(); initGS(); };
+  document.getElementById('statusBar').appendChild(btn);
+}
+
+// ─── FILE MANAGEMENT ─────────────────────────────────────────────────────────
+const dz = document.getElementById('dropzone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('dragover'); addFiles([...e.dataTransfer.files]); });
+document.getElementById('fileInput').addEventListener('change', e => { addFiles([...e.target.files]); e.target.value = ''; });
+
+function addFiles(list) {
+  list.forEach(f => {
+    if (getType(f) && !files.find(x => x.name === f.name && x.size === f.size))
+      files.push(f);
+  });
+  renderList(); updateUI();
+}
+window.removeFile = function(idx) { files.splice(idx, 1); renderList(); updateUI(); };
+
+function renderList() {
+  const el = document.getElementById('fileList');
+  el.innerHTML = '';
+  files.forEach((f, i) => {
+    const t = getType(f), lbl = t === 'word' ? 'DOCX' : t === 'excel' ? 'XLSX' : 'PDF';
+    const d = document.createElement('div');
+    d.className = 'fi';
+    d.innerHTML = `
+      <span class="fi-badge ${t}">${lbl}</span>
+      <div class="fi-info">
+        <div class="fi-name" title="${f.name}">${f.name}</div>
+        <div class="fi-size">${fmt(f.size)}</div>
+      </div>
+      <button class="fi-remove" onclick="removeFile(${i})">✕</button>`;
+    el.appendChild(d);
+  });
+}
+
+function updateUI() {
+  const hasPdf    = files.some(f => getType(f) === 'pdf');
+  const hasOffice = files.some(f => ['word','excel'].includes(getType(f)));
+  document.getElementById('optionsSection').style.display = files.length ? 'flex' : 'none';
+  document.getElementById('pdfSection').style.display    = hasPdf    ? 'block' : 'none';
+  document.getElementById('officeSection').style.display = hasOffice ? 'block' : 'none';
+  document.getElementById('results').innerHTML = '';
+  document.getElementById('progressWrap').style.display = 'none';
+  blobs = [];
+
+  // Mostra avviso se c'è un PDF grande (> 2 MB)
+  const hasLargePdf = files.some(f => getType(f) === 'pdf' && f.size > 2_000_000);
+  document.getElementById('largeFileWarn').style.display = hasLargePdf ? 'block' : 'none';
+
+  updateBtn();
+}
+
+function updateBtn() {
+  // Il pulsante è attivo anche senza GS: i PDF vengono ottimizzati con pdf-lib
+  document.getElementById('compressBtn').disabled = files.length === 0;
+}
+
+// ─── CONTROLS ────────────────────────────────────────────────────────────────
+window.selectPreset = function(el) {
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active'); preset = el.dataset.preset;
+  document.getElementById('presetInfo').innerHTML = PRESET_DESC[preset];
+};
+window.selectQuality = function(el) {
+  document.querySelectorAll('.quality-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active'); officeQ = el.dataset.quality;
+};
+window.toggleStrip = function(el) {
+  el.classList.toggle('on');
+  const on = el.classList.contains('on');
+  el.querySelector('.check').textContent = on ? '✓' : '○';
+  stripOpts[el.dataset.strip] = on;
+};
+
+// ─── PDF ANALYSIS ─────────────────────────────────────────────────────────────
+function analyzePDF(buf) {
+  const bytes = new Uint8Array(buf);
+
+  // PDF 1.5+ con XRef streams usa oggetti compressi: la scansione testuale
+  // dei primi N byte non trova font/immagini perché sono dentro ObjStm compressi.
+  // Rileviamo questa struttura leggendo l'header e cercando /Type /XRef.
+  const SCAN_BYTES = Math.min(buf.byteLength, 2_000_000);
+  const TAIL_BYTES = Math.min(buf.byteLength, 300_000);
+  const head = new TextDecoder('latin1').decode(bytes.slice(0, SCAN_BYTES));
+  const tail = buf.byteLength > SCAN_BYTES
+    ? new TextDecoder('latin1').decode(bytes.slice(-TAIL_BYTES))
+    : '';
+  const chunk = head + tail;
+
+  // Versione PDF dall'header
+  const verMatch = head.match(/%PDF-(\d+\.\d+)/);
+  const pdfVer   = verMatch ? parseFloat(verMatch[1]) : 1.4;
+
+  // Rileva XRef streams (PDF 1.5+): gli oggetti sono compressi, analisi testuale inaffidabile
+  const hasXRefStream = chunk.includes('/Type /XRef') || chunk.includes('/Type/XRef');
+
+  // Se PDF >= 1.5 con XRef stream, scansiona TUTTO il file (più lento ma accurato)
+  const fullScan = hasXRefStream || pdfVer >= 1.5;
+  const scanChunk = fullScan
+    ? new TextDecoder('latin1').decode(bytes)  // intero file
+    : chunk;
+
+  const fonts     = (scanChunk.match(/\/BaseFont\s*\//g) || []).length;
+  const images    = (scanChunk.match(/\/Subtype\s*\/Image/g) || []).length;
+  const prodMatch = scanChunk.match(/\/Producer\s*\(([^)]{0,80})\)/);
+  const producer  = prodMatch ? prodMatch[1].trim() : '';
+  const pages     = Math.max((scanChunk.match(/\/Type\s*\/Page[^s]/g) || []).length, 1);
+
+  // Analisi stream: dimensioni e filtri (sul chunk più ampio disponibile)
+  const allStreams = [...scanChunk.matchAll(/\/Length\s+(\d+)/g)].map(m => parseInt(m[1]));
+  const bigStreams = allStreams.filter(s => s > 20000);
+  const maxStream = Math.max(0, ...allStreams);
+
+  // Immagini già JPEG (DCTDecode) vs raw/PNG
+  const dctCount  = (scanChunk.match(/\/Filter\s*\/DCTDecode/g) || []).length +
+                    (scanChunk.match(/DCTDecode/g) || []).length;
+  // Presence di color spaces esotici che bloccano GS
+  const hasICC    = scanChunk.includes('/ICCBased') || scanChunk.includes('ICCBased');
+  const hasCMYK   = scanChunk.includes('/DeviceCMYK') || scanChunk.includes('DeviceCMYK');
+
+  // Font per pagina — molti = duplicati (tipico iOS/Quartz)
+  const fontPerPage = fonts / pages;
+  const hasDupFonts = fontPerPage > 3;
+
+  // ── Regole di skip GS ──────────────────────────────────────────────────────
+
+  // 1. File già piccolo: GS aggiunge overhead fisso, gonfia invece di ridurre
+  const isTiny = buf.byteLength < 150_000; // < 150 KB
+
+  // 2. PDF testuale da Word/Pages/LibreOffice già ottimizzato
+  const isWordLike = /word|libreoffice|pages|writer|openoffice/i.test(producer);
+  const isWordSkip = isWordLike && fonts < 20 && images < 5;
+
+  // 3. PDF generato da tool web (TCPDF, wkhtmltopdf, Puppeteer…)
+  const isWebGen  = /tcpdf|html2pdf|wkhtmltopdf|puppeteer|fpdf|dompdf|reportlab|weasyprint/i.test(producer);
+
+  // 4. Font standard non embedded
+  //    NOTA: fonts==0 su PDF con XRef streams non significa "nessun font" — skippiamo questa regola
+  const stdFonts  = (scanChunk.match(/\/(Helvetica|Times|Courier|Arial|Symbol|ZapfDingbats)[\s\/]/g) || []).length;
+  const allStdFont = fonts > 0 && fonts <= 5 && stdFonts >= fonts * 0.8 && images < 3;
+
+  // 5. Immagine JPEG dominante con color space esotico → GS si blocca
+  const bigImgRatio     = maxStream / buf.byteLength;
+  const isSingleBigJpeg = images <= 2 && dctCount > 0 && bigImgRatio > 0.35;
+
+  // 6. ★ PDF puramente testuale (0 immagini, niente DCT)
+  //    Valido SOLO se l'analisi è affidabile (non XRef stream) — altrimenti potremmo sbagliare
+  const isPureText = !hasXRefStream && images === 0 && dctCount === 0 && bigStreams.length < 3;
+
+  // 7. ★ File molto grande (>3 MB) senza immagini → GS troppo lento nel thread UI
+  //    Escludi PDF con XRef streams: quelli con molti font duplicati (Quartz/iPhone) traggono beneficio da GS
+  const isHeavyTextPDF = !hasXRefStream && buf.byteLength > 3_000_000 && images < 5 && dctCount < 3;
+
+  const skipGS = isTiny || isWordSkip || isWebGen || allStdFont ||
+                 isSingleBigJpeg || isPureText || isHeavyTextPDF;
+
+  let skipReason = '';
+  if (isTiny)            skipReason = `File troppo piccolo (${Math.round(buf.byteLength/1024)}KB) — GS aggiungerebbe overhead`;
+  else if (isWebGen)     skipReason = `Producer "${producer}" — font non embedded, GS gonfia il file`;
+  else if (allStdFont)   skipReason = `Font standard non embedded (${stdFonts} su ${fonts}) — GS incorporerebbe i font`;
+  else if (isWordSkip)   skipReason = `Producer "${producer}" — PDF testuale già ottimizzato`;
+  else if (isSingleBigJpeg) skipReason = `Immagine JPEG dominante (${Math.round(bigImgRatio*100)}% del file)`;
+  else if (isPureText)   skipReason = `PDF testuale puro (${images} immagini, ${pages} pag.) — ottimizzazione leggera`;
+  else if (isHeavyTextPDF) skipReason = `PDF grande (${(buf.byteLength/1048576).toFixed(1)} MB) con poche immagini — evito blocco browser`;
+
+  // Score comprimibilità (usato solo quando skipGS=false)
+  let score = 0;
+  if (hasDupFonts)           score += 55;
+  if (images > 10)           score += 25;
+  else if (images > 2)       score += 10;
+  if (bigStreams.length > 5) score += 15;
+  if (!isWordLike)           score += 10;
+  if (hasICC || hasCMYK)     score -= 20;
+  score = Math.max(0, Math.min(score, 100));
+
+  return { fonts, images, pages, producer, hasDupFonts,
+           fontPerPage: fontPerPage.toFixed(1), maxStream, bigImgRatio,
+           isSingleBigJpeg, hasICC, hasCMYK, isPureText, isHeavyTextPDF,
+           skipGS, skipReason, score };
+}
+
+// ─── PDF COMPRESSION ─────────────────────────────────────────────────────────
+async function compressPDF(file) {
+  setProgress(5, 'Analisi PDF…');
+  await raf();
+
+  const buf = await file.arrayBuffer();
+  const a   = analyzePDF(buf);
+
+  const sizeMB = (buf.byteLength / 1048576).toFixed(1);
+  setProgress(15, `Analisi: ${a.pages} pag · ${a.fonts} font · ${a.images} img · ${sizeMB} MB`);
+  await raf();
+
+  // SKIP GS — file già ottimizzato, testuale puro, o troppo pesante per il thread UI
+  if (a.skipGS) {
+    setProgress(30, `⚡ Ottimizzazione leggera: ${a.skipReason}`);
+    await raf();
+    const result = await pdfLibOptimize(buf);
+    return result;
+  }
+
+  // Se GS non è disponibile (mobile, CDN lento) → fallback a pdf-lib
+  if (!gsReady || !gs) {
+    setProgress(30, `⚡ GS non disponibile — ottimizzazione leggera (pdf-lib)…`);
+    await raf();
+    return await pdfLibOptimize(buf);
+  }
+
+  // AVVISO per file grandi che andranno a GS (potrebbero essere lenti)
+  if (buf.byteLength > 5_000_000) {
+    setProgress(25, `⚠️ File grande (${sizeMB} MB) — Ghostscript potrebbe impiegare 20-60 sec…`);
+    await new Promise(r => setTimeout(r, 400));
+  }
+
+  // INVIA A GHOSTSCRIPT
+  setProgress(30, `Ghostscript in elaborazione (preset: ${preset}) — attendi…`);
+  // Yielding esteso: lascia al browser il tempo di aggiornare l'UI prima del blocco sincrono
+  await new Promise(r => setTimeout(r, 200));
+  await raf();
+  await new Promise(r => setTimeout(r, 50));
+
+  gs.FS.writeFile('i.pdf', new Uint8Array(buf));
+  gs.callMain([
+    '-dNOPAUSE', '-dBATCH', '-dQUIET',
+    '-sDEVICE=pdfwrite', '-dCompatibilityLevel=1.5',
+    '-dCompressFonts=true', '-dSubsetFonts=true',
+    '-dEmbedAllFonts=true', '-dPDFDEDUPFONTS=true',
+    '-dDetectDuplicateImages=true', '-dFastWebView=true',
+    '-dEncodeColorImages=true', '-dEncodeGrayImages=true',
+    '-dAutoFilterColorImages=false', '-dAutoFilterGrayImages=false',
+    '-sColorImageFilter=FlateEncode', '-sGrayImageFilter=FlateEncode',
+    '-dPDFSETTINGS=/' + preset,
+    '-sOutputFile=o.pdf', 'i.pdf'
+  ]);
+
+  const out = gs.FS.readFile('o.pdf');
+  try { gs.FS.unlink('i.pdf'); gs.FS.unlink('o.pdf'); } catch(_) {}
+
+  setProgress(95, 'Finalizzazione…');
+  await raf();
+  return new Blob([out], { type: 'application/pdf' });
+}
+
+// Ottimizzazione leggera senza GS (pdf-lib): strip metadata + object streams
+async function pdfLibOptimize(buf) {
+  const { PDFDocument } = PDFLib;
+  const doc = await PDFDocument.load(buf, {
+    ignoreEncryption: true,
+    updateMetadata: false,
+    // Carica senza espandere tutti gli object stream — più veloce su PDF grandi
+    parseSpeed: PDFLib.ParseSpeeds?.Slow ?? undefined,
+  });
+  // Rimuovi tutti i metadati identificativi
+  try {
+    doc.setTitle('');
+    doc.setAuthor('');
+    doc.setSubject('');
+    doc.setKeywords([]);
+    doc.setProducer('');
+    doc.setCreator('');
+    // Rimuovi XMP metadata se presente
+    const catalog = doc.catalog;
+    if (catalog.has(PDFLib.PDFName.of('Metadata'))) {
+      catalog.delete(PDFLib.PDFName.of('Metadata'));
+    }
+  } catch(_) {}
+
+  const bytes = await doc.save({
+    useObjectStreams: true,   // comprime gli object stream
+    addDefaultPage: false,
+    objectsPerTick: 50,       // chunk per non bloccare il thread
+  });
+  return new Blob([bytes], { type: 'application/pdf' });
+}
+
+// ─── OFFICE COMPRESSION ──────────────────────────────────────────────────────
+async function compressOffice(file) {
+  const q   = QUALITY[officeQ];
+  const zip = new JSZip();
+  await zip.loadAsync(file);
+  const tasks = [];
+
+  zip.forEach((path, entry) => {
+    if (entry.dir) return;
+    const lo = path.toLowerCase();
+    if (stripOpts.metadata && (lo === 'docprops/core.xml' || lo === 'docprops/app.xml'))
+      { tasks.push({ path, action: 'meta' }); return; }
+    if (stripOpts.thumbnail && lo.startsWith('docprops/thumbnail'))
+      { tasks.push({ path, action: 'del' }); return; }
+    if (/\.(jpe?g|png|bmp|gif)$/i.test(lo) && lo.includes('/media/'))
+      tasks.push({ path, action: 'img', entry });
+  });
+
+  const imgs = tasks.filter(t => t.action === 'img').length;
+  await tick();
+
+  let imgDone = 0;
+  for (const t of tasks) {
+    await tick();
+    if (t.action === 'del') {
+      zip.remove(t.path);
+    } else if (t.action === 'meta') {
+      const core = t.path.toLowerCase().includes('core');
+      zip.file(t.path, core
+        ? `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/"></cp:coreProperties>`
+        : `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"></Properties>`);
+    } else if (t.action === 'img') {
+      imgDone++;
+      try {
+        const orig = await t.entry.async('arraybuffer');
+        const rc   = await recompressImg(orig, q);
+        if (rc && rc.byteLength < orig.byteLength * 0.97) {
+          zip.file(t.path, rc);
+          const pct = (100 - rc.byteLength / orig.byteLength * 100).toFixed(0);
+        } else {
+        }
+      } catch(_) { /* skip immagine */ }
+    }
+  }
+  const xlsx = file.name.toLowerCase().endsWith('.xlsx');
+  const blob = await zip.generateAsync({
+    type: 'blob',
+    mimeType: xlsx
+      ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    compression: 'DEFLATE',
+    compressionOptions: { level: stripOpts.deflate ? 9 : 6 },
+  });
+  logReplace('zip', `ZIP completato: ${fmt(file.size)} → ${fmt(blob.size)}`, 'ok');
+  return blob;
+}
+
+function recompressImg(ab, q) {
+  return new Promise(resolve => {
+    const url = URL.createObjectURL(new Blob([ab]));
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      try {
+        const c = document.createElement('canvas');
+        c.width = img.naturalWidth; c.height = img.naturalHeight;
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+        ctx.drawImage(img, 0, 0);
+        const b64 = c.toDataURL('image/jpeg', q).split(',')[1];
+        c.width = c.height = 1;
+        resolve(Uint8Array.from(atob(b64), x => x.charCodeAt(0)).buffer);
+      } catch(_) { resolve(null); }
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+    img.src = url;
+  });
+}
+
+// ─── MAIN ────────────────────────────────────────────────────────────────────
+window.compressAll = async function() {
+  const btn = document.getElementById('compressBtn');
+  btn.disabled = true;
+  blobs = [];
+  const rd = document.getElementById('results');
+  rd.innerHTML = '';
+  document.getElementById('progressWrap').style.display = 'block';
+  const total = files.length;
+
+  for (let i = 0; i < total; i++) {
+    const f = files[i];
+    const t = getType(f);
+    setProgress(Math.round(i / total * 100), `${i + 1}/${total} — ${f.name}`);
+    await raf();
+
+    try {
+      const blob  = t === 'pdf' ? await compressPDF(f) : await compressOffice(f);
+      blobs.push({ name: f.name, blob, type: t });
+
+      const saved = f.size - blob.size;
+      const pct   = ((saved / f.size) * 100).toFixed(1);
+      const good  = saved > 512;
+      const lbl   = t === 'word' ? 'DOCX' : t === 'excel' ? 'XLSX' : 'PDF';
+      const item  = document.createElement('div');
+      item.className = 'ri';
+      item.innerHTML = `
+        <div class="ri-info">
+          <div class="ri-name" title="${f.name}">
+            ${f.name}<span class="ri-tag ${t}">${lbl}</span>
+          </div>
+          <div class="ri-stats ${good ? 'ok' : 'warn'}">
+            ${good
+              ? `${fmt(f.size)} → ${fmt(blob.size)} &nbsp;−${pct}%`
+              : `${fmt(blob.size)} &nbsp;(riduzione minima — file già ottimizzato)`}
+          </div>
+        </div>
+        <button class="dl-btn" onclick="downloadSingle(${blobs.length - 1})">↓ Scarica</button>`;
+      rd.appendChild(item);
+
+    } catch(err) {
+      blobs.push(null);
+      const item = document.createElement('div');
+      item.className = 'ri';
+      item.style.cssText = 'border-color:rgba(255,59,48,.3);background:rgba(255,59,48,.04)';
+      item.innerHTML = `
+        <div class="ri-info">
+          <div class="ri-name">${f.name}</div>
+          <div class="ri-stats" style="color:var(--red)">✕ ${err.message}</div>
+        </div>`;
+      rd.appendChild(item);
+    }
+  }
+
+  setProgress(100, '✓ Completato');
+  btn.disabled = false;
+  document.getElementById('compressBtn').disabled = files.length === 0;
+
+  const ok = blobs.filter(Boolean);
+  if (ok.length > 1) {
+    const b = document.createElement('button');
+    b.className = 'dl-all';
+    b.textContent = `↓ Scarica tutti (${ok.length} file)`;
+    b.onclick = downloadAll;
+    rd.appendChild(b);
+  }
+};
+
+window.downloadSingle = function(idx) {
+  const e = blobs[idx];
+  if (!e) return;
+  const url = URL.createObjectURL(e.blob);
+  const a   = document.createElement('a');
+  a.href = url;
+  a.download = e.name.replace(/(\.\w+)$/, '_compressed$1');
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+function downloadAll() {
+  blobs.forEach((e, i) => { if (e) setTimeout(() => window.downloadSingle(i), i * 350); });
+}
+
+// Boot
+initGS();
+
+</script>
+</body>
+</html>

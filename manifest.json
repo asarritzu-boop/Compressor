@@ -1,0 +1,23 @@
+{
+  "short_name": "Compressor",
+  "name": "File Compressor — PDF Word Excel",
+  "description": "Comprimi i tuoi file localmente nel browser in totale privacy.",
+  "icons": [
+    {
+      "src": "icona-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "icona-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#f2f2f7",
+  "background_color": "#ffffff",
+  "orientation": "portrait"
+}
